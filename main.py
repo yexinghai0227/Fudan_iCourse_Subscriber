@@ -337,4 +337,16 @@ def run():
 
 
 if __name__ == "__main__":
-    run()
+    vpn = login_with_retry()
+    vpn.session.close()
+    print("[Verification] School password, TOTP and iCourse login succeeded", flush=True)
+    if not (config.SMTP_EMAIL and config.SMTP_PASSWORD and config.RECEIVER_EMAIL):
+        raise RuntimeError("Email configuration incomplete")
+    if not Emailer().send([{
+        "course_title": "订阅登录恢复验证",
+        "sub_title": "密码、动态口令及邮件发送验证通过",
+        "date": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d"),
+        "summary": "UIS 密码登录、TOTP 二次验证及 iCourse 登录已成功。此邮件用于验证订阅发送链路。正常课程订阅任务已启动，课程笔记处理完成后将按原配置发送。",
+    }]):
+        raise RuntimeError("SMTP verification failed")
+    print("[Verification] SMTP accepted full-chain verification email", flush=True)
