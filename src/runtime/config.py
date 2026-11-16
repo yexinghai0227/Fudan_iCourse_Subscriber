@@ -1,7 +1,9 @@
 import os
 
 STUDENT_ID = os.environ.get("StuId", "")
-PASSWORD = os.environ.get("UISPsw", "")
+# UISPsw/UISPSW remains the database encryption password after a password
+# rotation. Override only the live login credential, preserving old shards.
+PASSWORD = os.environ.get("UIS_LOGIN_PASSWORD") or os.environ.get("UISPsw", "")
 
 WEBVPN_BASE = "https://webvpn.fudan.edu.cn"
 IDP_BASE = "https://id.fudan.edu.cn"

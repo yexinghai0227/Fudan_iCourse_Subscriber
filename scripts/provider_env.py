@@ -39,7 +39,12 @@ def main():
     # Secret names are case-insensitive on the GitHub side; normalise.
     lookup = {str(k).upper(): v for k, v in ctx.items() if v}
 
-    emitted: set[str] = set()
+    # The workflows already pass SECRETS_CONTEXT here. Export the separate
+    # login password without changing UISPSW, which also encrypts the DB.
+    emitted: set[str] = {"UIS_LOGIN_PASSWORD"}
+    login_password = lookup.get("UIS_LOGIN_PASSWORD")
+    if login_password:
+        print(f"export UIS_LOGIN_PASSWORD={shlex.quote(str(login_password))}")
     for provider in MODEL_PROVIDERS:
         for field in ("api_key_env", "base_url_env"):
             name = provider.get(field)

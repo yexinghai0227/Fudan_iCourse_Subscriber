@@ -35,6 +35,7 @@
 |---|---|---|---|
 | `STUID` | ✅ | 复旦学号 | `22307110000` |
 | `UISPSW` | ✅ | UIS 统一身份认证密码 | `your_password` |
+| `UIS_LOGIN_PASSWORD` | ⬜ | 修改 UIS 密码后设置为新密码；保留原 `UISPSW` 用于解密历史数据 | `new_password` |
 | `COURSE_IDS` | ✅ | 要监控的课程 ID，多个用英文逗号分隔 | `35472,30251` |
 | `DASHSCOPE_API_KEY` | ⬜ | ModelScope 平台 API Key | `ms-xxxxxxxx` |
 | `DEEPSEEK_API_KEY` | ⬜ | DeepSeek API Key（推荐） | `sk-xxxxxxxx` |
@@ -44,6 +45,8 @@
 | `RECEIVER_EMAIL` | ✅ | 接收摘要邮件的邮箱 | `you@m.fudan.edu.com` |
 
 > 至少配置一个 LLM API Key（DASHSCOPE、DEEPSEEK 或 GEMINI）。程序按配置顺序自动回退尝试。如果需要选择其他的LLM供应商，可以在`src\runtime\config.py`路径下自定义供应商。
+
+> 修改 UIS 密码后，请通过 `gh secret set UIS_LOGIN_PASSWORD -R 用户名/Fudan_iCourse_Subscriber` 输入新密码。不要直接覆盖已有 `UISPSW`：它同时用于数据库加密；前端查看历史数据仍使用原来的解密密码。认证被明确拒绝时，程序会停止自动重试，避免连续提交错误密码。
 
 ### 第 3 步：获取课程 ID
 
