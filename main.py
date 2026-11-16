@@ -337,16 +337,13 @@ def run():
 
 
 if __name__ == "__main__":
-    vpn = login_with_retry()
-    vpn.session.close()
-    print("[Verification] School login successful", flush=True)
     if not (config.SMTP_EMAIL and config.SMTP_PASSWORD and config.RECEIVER_EMAIL):
         raise RuntimeError("Email configuration incomplete")
     if not Emailer().send([{
         "course_title": "订阅恢复验证",
         "sub_title": "UIS 登录与邮件发送测试",
         "date": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d"),
-        "summary": "学校登录已验证成功。这是一封订阅恢复测试邮件，后续课程笔记将由原定时任务继续发送。",
+        "summary": "这是一封邮件通道测试邮件。SMTP 发送链路正在验证；学校登录的额外验证步骤仍在修复中。",
     }]):
         raise RuntimeError("SMTP verification failed")
     print("[Verification] SMTP accepted test email", flush=True)
