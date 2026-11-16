@@ -337,7 +337,7 @@ def run():
 
 
 if __name__ == "__main__":
-    vpn = login_with_retry(max_attempts=1)
+    vpn = login_with_retry()
     vpn.session.close()
     print("[Verification] School login successful", flush=True)
     if not (config.SMTP_EMAIL and config.SMTP_PASSWORD and config.RECEIVER_EMAIL):
