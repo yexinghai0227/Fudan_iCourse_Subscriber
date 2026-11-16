@@ -36,6 +36,7 @@
 | `STUID` | ✅ | 复旦学号 | `22307110000` |
 | `UISPSW` | ✅ | UIS 统一身份认证密码 | `your_password` |
 | `UIS_LOGIN_PASSWORD` | ⬜ | 修改 UIS 密码后设置为新密码；保留原 `UISPSW` 用于解密历史数据 | `new_password` |
+| `UIS_TOTP_SECRET` | 二次验证时必填 | UIS 已绑定的 Base32 动态口令密钥，不是六位验证码 | 绑定页面显示的密钥 |
 | `COURSE_IDS` | ✅ | 要监控的课程 ID，多个用英文逗号分隔 | `35472,30251` |
 | `DASHSCOPE_API_KEY` | ⬜ | ModelScope 平台 API Key | `ms-xxxxxxxx` |
 | `DEEPSEEK_API_KEY` | ⬜ | DeepSeek API Key（推荐） | `sk-xxxxxxxx` |
@@ -47,6 +48,8 @@
 > 至少配置一个 LLM API Key（DASHSCOPE、DEEPSEEK 或 GEMINI）。程序按配置顺序自动回退尝试。如果需要选择其他的LLM供应商，可以在`src\runtime\config.py`路径下自定义供应商。
 
 > 修改 UIS 密码后，请通过 `gh secret set UIS_LOGIN_PASSWORD -R 用户名/Fudan_iCourse_Subscriber` 输入新密码。不要直接覆盖已有 `UISPSW`：它同时用于数据库加密；前端查看历史数据仍使用原来的解密密码。认证被明确拒绝时，程序会停止自动重试，避免连续提交错误密码。
+
+若学校要求二次验证，进入 [UIS 账号安全](https://id.fudan.edu.cn/uc/#/pc/userCenter/accountSecurity)，在「动态口令」中按提示完成绑定，并保留绑定时的 Base32 密钥。通过 `gh secret set UIS_TOTP_SECRET -R 用户名/Fudan_iCourse_Subscriber` 保存该密钥后，定时任务可自动生成动态口令。未配置密钥或二次验证失败时，程序会停止密码重试并给出错误提示。
 
 ### 第 3 步：获取课程 ID
 

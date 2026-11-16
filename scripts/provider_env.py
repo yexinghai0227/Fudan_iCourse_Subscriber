@@ -41,10 +41,11 @@ def main():
 
     # The workflows already pass SECRETS_CONTEXT here. Export the separate
     # login password without changing UISPSW, which also encrypts the DB.
-    emitted: set[str] = {"UIS_LOGIN_PASSWORD"}
-    login_password = lookup.get("UIS_LOGIN_PASSWORD")
-    if login_password:
-        print(f"export UIS_LOGIN_PASSWORD={shlex.quote(str(login_password))}")
+    emitted: set[str] = {"UIS_LOGIN_PASSWORD", "UIS_TOTP_SECRET"}
+    for name in sorted(emitted):
+        value = lookup.get(name)
+        if value:
+            print(f"export {name}={shlex.quote(str(value))}")
     for provider in MODEL_PROVIDERS:
         for field in ("api_key_env", "base_url_env"):
             name = provider.get(field)
