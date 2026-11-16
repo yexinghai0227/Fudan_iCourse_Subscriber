@@ -20,6 +20,27 @@ import base64
 from src.runtime import config
 
 
+class AuthenticationRejected(RuntimeError):
+    """An explicit identity-provider rejection must not be retried blindly."""
+
+
+def check_auth_result(data: dict, student_id: str, password: str = "") -> None:
+    if str(data.get("code")) == "200":
+        return
+    # Keep the provider's useful explanation without logging credentials or
+    # the complete response (which can contain authentication context).
+    message = str(data.get("message") or data.get("msg") or "No explanation supplied")
+    for secret in (student_id, password, config.PASSWORD):
+        if secret:
+            message = message.replace(secret, "[redacted]")
+    message = re.sub(r"https?://\S+", "[URL redacted]", message)
+    message = re.sub(r"[\r\n\x00-\x1f]", " ", message)[:200]
+    raise AuthenticationRejected(
+        f"Authentication rejected (code={data.get('code')}): {message}. "
+        "Automatic password retries stopped; check UIS credentials/account verification."
+    )
+
+
 def encrypt_host(hostname: str) -> str:
     """Encrypt hostname using AES-128-CFB for WebVPN URL encoding.
 
@@ -298,10 +319,7 @@ class WebVPNSession:
         )
         data = resp.json()
 
-        if str(data.get("code")) != "200":
-            raise RuntimeError(
-                f"iCourse CAS auth failed (code={data.get('code')})"
-            )
+        check_auth_result(data, student_id, password)
 
         login_token = data.get("loginToken", "")
         if not login_token:
@@ -522,10 +540,7 @@ class WebVPNSession:
         )
         data = resp.json()
 
-        if str(data.get("code")) != "200":
-            raise RuntimeError(
-                f"Authentication failed (code={data.get('code')})"
-            )
+        check_auth_result(data, student_id)
 
         # loginToken is at top level, not nested under "data"
         login_token = data.get("loginToken", "")
