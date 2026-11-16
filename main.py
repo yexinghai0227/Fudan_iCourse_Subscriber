@@ -72,7 +72,8 @@ def _check_session(client: ICourseClient) -> None:
 
 
 def _enumerate_lectures(client: ICourseClient, db: Database,
-                        reporter: Reporter) -> list[tuple[str, str, dict]]:
+                        reporter: Reporter,
+                        failures: list[str] | None = None) -> list[tuple[str, str, dict]]:
     """Sync, fast: list every (course_id, course_title, lecture) we'll
     process this run.  Done up-front so the prefetch loop can see across
     course boundaries when picking the "next" lecture."""
@@ -143,6 +144,8 @@ def _enumerate_lectures(client: ICourseClient, db: Database,
                 )
                 out.append((course_id, course_title, lecture))
         except Exception:
+            if failures is not None:
+                failures.append(f"Course {course_id}: enumeration failed")
             reporter.course_enumeration_error(course_id)
             traceback.print_exc()
     return out
@@ -152,7 +155,8 @@ def _drive_lectures(client: ICourseClient, db: Database,
                     scheduler: Scheduler, transcriber: Transcriber,
                     summarizer: Summarizer, reporter: Reporter,
                     all_lectures: list[tuple[str, str, dict]],
-                    email_items: list) -> None:
+                    email_items: list,
+                    failures: list[str] | None = None) -> None:
     """Phase 2: run each lecture through LectureRunner.
 
     Pre-schedules the first lecture's prefetch (audio + images) before
@@ -189,7 +193,15 @@ def _drive_lectures(client: ICourseClient, db: Database,
                     "date": lecture.get("date", ""),
                     "summary": summary,
                 })
+            elif failures is not None:
+                row = db.get_lecture(sub_id) or {}
+                if not row.get("processed_at") and row.get("error_stage") in (
+                    "transcribe", "summarize",
+                ):
+                    failures.append(f"Lecture {sub_id}: {row['error_stage']} failed")
         except Exception:
+            if failures is not None:
+                failures.append(f"Lecture {sub_id}: processing failed")
             reporter.lecture_error(sub_id)
             traceback.print_exc()
         finally:
@@ -201,7 +213,7 @@ def _drive_lectures(client: ICourseClient, db: Database,
 
 
 def _send_email(emailer: Emailer | None, db: Database, reporter: Reporter,
-                email_items: list) -> None:
+                email_items: list) -> bool:
     """Append any previously-processed-but-unsent lectures, then send."""
     unsent = db.get_unsent_lectures()
     if unsent:
@@ -217,17 +229,22 @@ def _send_email(emailer: Emailer | None, db: Database, reporter: Reporter,
                 })
         reporter.email_recovered_unsent(len(unsent))
 
-    if not (emailer and email_items):
-        return
+    if not email_items:
+        return True
+    if not emailer:
+        reporter.info("[Email] Summaries are ready but SMTP configuration is missing.")
+        return False
     try:
         reporter.email_summary(len(email_items))
         if emailer.send(email_items):
             db.mark_emailed_batch([item["sub_id"] for item in email_items])
+            return True
         else:
             reporter.email_failed()
     except Exception:
         reporter.info("[Email] Failed to send:")
         traceback.print_exc()
+    return False
 
 
 def _crawl_semester_catalog(client: ICourseClient, db: Database,
@@ -321,19 +338,23 @@ def run():
         return
 
     scheduler = Scheduler(reporter=reporter)
+    failures: list[str] = []
 
     try:
-        all_lectures = _enumerate_lectures(client, db, reporter)
+        all_lectures = _enumerate_lectures(client, db, reporter, failures)
         _drive_lectures(
             client, db, scheduler, transcriber, summarizer, reporter,
-            all_lectures, email_items,
+            all_lectures, email_items, failures,
         )
 
     finally:
         scheduler.shutdown()
 
-    _send_email(emailer, db, reporter, email_items)
+    if not _send_email(emailer, db, reporter, email_items):
+        failures.append("Email delivery failed; summaries remain unsent for retry")
     reporter.run_footer()
+    if failures:
+        raise RuntimeError("Run incomplete:\n" + "\n".join(failures))
 
 
 if __name__ == "__main__":

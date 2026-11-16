@@ -108,6 +108,10 @@ class Summarizer:
         if not response.choices:
             raise ValueError("API returned empty choices — likely content filter or quota exceeded")
         result = response.choices[0].message.content
+        if not isinstance(result, str) or not result.strip():
+            raise ValueError("API returned an empty summary")
+        if getattr(response.choices[0], "finish_reason", None) == "length":
+            raise ValueError("API truncated the summary at its output limit")
         elapsed = time.time() - t0
         # Token usage helps explain run cost — every provider's billing is
         # token-based, and rate-limit decisions key off prompt size much
